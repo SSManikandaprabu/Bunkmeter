@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bunkmeter: Attendance Planner</title>
+<style>
+:root{--bg:#f4f7f2;--card:#fff;--ink:#12261a;--mute:#5b6f61;--line:#dbe5dc;--ok:#128a4b;--warn:#d98a00;--bad:#d1372c;--brand:#12261a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1a12;--card:#15271b;--ink:#eaf5ee;--mute:#93aa9b;--line:#264032;--ok:#3ed17f;--warn:#ffc043;--bad:#ff6b5e;--brand:#eaf5ee}}
+:root[data-theme="dark"]{--bg:#0d1a12;--card:#15271b;--ink:#eaf5ee;--mute:#93aa9b;--line:#264032;--ok:#3ed17f;--warn:#ffc043;--bad:#ff6b5e;--brand:#eaf5ee}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+h1{margin:0;font:800 1.7rem/1.1 Georgia,"Times New Roman",serif;letter-spacing:-.01em}
+.sub{color:var(--mute);font-size:.9rem}
+.top{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+label{font-size:.85rem;color:var(--mute);display:block}
+input,button{font:inherit;color:inherit}
+input{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:transparent;width:100%}
+input:focus-visible,button:focus-visible{outline:3px solid var(--ok);outline-offset:1px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;border-left:8px solid var(--c,var(--line))}
+.h{display:grid;grid-template-columns:1fr 84px 84px 32px;gap:8px;align-items:end}
+.meter{height:10px;background:var(--line);border-radius:6px;margin:14px 0 8px;position:relative;overflow:visible}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--c);transition:width .3s}
+.meter u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.pct{font:800 1.9rem/1 Georgia,serif;color:var(--c)}
+.msg{font-size:.95rem}
+.act{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{border:1.5px solid var(--line);background:transparent;border-radius:10px;padding:7px 12px;cursor:pointer;font-weight:600}
+.btn.solid{background:var(--brand);color:var(--bg);border:0}
+.x{border:0;background:transparent;cursor:pointer;font-size:1.3rem;color:var(--mute)}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.note{font-size:.8rem;color:var(--mute)}
+</style></head>
+<body><div class="wrap">
+<header><div><h1>Bunkmeter</h1><div class="sub">How many classes can you skip, and how many must you attend?</div></div><button class="btn" id="theme">Theme</button></header>
+<div class="top">
+  <div style="width:150px"><label for="tg">Required attendance %</label><input id="tg" type="number" min="1" max="99" value="75"></div>
+  <button class="btn solid" id="add">Add subject</button>
+  <button class="btn" id="clr">Clear all</button>
+</div>
+<div id="list"></div>
+<p class="note">Bunk count = classes you can miss and still stay at or above the requirement. The vertical line on each bar marks the requirement. Data stays in your browser.</p>
+</div>
+<script>
+const KEY="bunkmeter-v1";let S,T=75;
+try{const d=JSON.parse(localStorage.getItem(KEY));S=d.s;T=d.t}catch(e){}
+if(!Array.isArray(S)||!S.length)S=[{n:"",a:0,t:0}];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({s:S,t:T}))}catch(e){}};
+$("tg").value=T;
+function info(x){
+  const a=+x.a||0,t=+x.t||0;
+  if(!t)return{p:0,c:"var(--line)",m:"Enter classes attended and total held."};
+  const p=a/t*100;
+  if(p>=T){const b=Math.floor(a*100/T-t);
+    return{p,c:p>=T+5?"var(--ok)":"var(--warn)",m:b>0?`Safe. You can skip <b>${b}</b> more class${b>1?"es":""}.`:"On the edge. Do not skip the next class."}}
+  const n=Math.ceil((T*t-100*a)/(100-T));
+  return{p,c:"var(--bad)",m:`Short. Attend the next <b>${n}</b> class${n>1?"es":""} in a row to reach ${T}%.`}
+}
+function render(){
+  $("list").innerHTML=S.map((x,i)=>{const r=info(x);return`
+  <section class="card" style="--c:${r.c}">
+    <div class="h">
+      <div><label>Subject</label><input data-f="n" data-i="${i}" value="${esc(x.n)}" placeholder="e.g. Data Structures"></div>
+      <div><label>Attended</label><input type="number" min="0" data-f="a" data-i="${i}" value="${x.a}"></div>
+      <div><label>Total</label><input type="number" min="0" data-f="t" data-i="${i}" value="${x.t}"></div>
+      <button class="x" data-rm="${i}" aria-label="Remove subject">×</button>
+    </div>
+    <div class="meter"><i style="width:${Math.min(100,r.p)}%"></i><u style="left:${T}%"></u></div>
+    <div class="row"><span class="pct">${r.p.toFixed(1)}%</span><span class="msg">${r.m}</span></div>
+    <div class="act"><button class="btn" data-p="${i}">Attended today</button><button class="btn" data-m="${i}">Missed today</button></div>
+  </section>`}).join("");
+  save();
+}
+document.addEventListener("change",e=>{
+  const d=e.target.dataset;
+  if(d.f){S[d.i][d.f]=e.target.value;render()}
+  else if(e.target.id==="tg"){T=Math.min(99,Math.max(1,+e.target.value||75));render()}
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  if(d.p!==undefined){S[d.p].a=(+S[d.p].a||0)+1;S[d.p].t=(+S[d.p].t||0)+1;render()}
+  else if(d.m!==undefined){S[d.m].t=(+S[d.m].t||0)+1;render()}
+  else if(d.rm!==undefined){S.splice(d.rm,1);if(!S.length)S=[{n:"",a:0,t:0}];render()}
+  else if(b.id==="add"){S.push({n:"",a:0,t:0});render()}
+  else if(b.id==="clr"){S=[{n:"",a:0,t:0}];render()}
+  else if(b.id==="theme"){const r=document.documentElement,dark=getComputedStyle(r).getPropertyValue("--bg").trim()==="#0d1a12";r.dataset.theme=dark?"light":"dark"}
+});
+render();
+</script></body></html>
